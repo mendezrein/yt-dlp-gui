@@ -18,13 +18,15 @@ except ImportError:
 
 
 LABELS = {4320: "8k", 2160: "4k", 1440: "2k", 1080: "1080", 720: "720", 480: "480", 360: "360"}
-BG = "#e0e5ec"
-BG_DARK = "#d1d9e6"
-FG = "#2d3436"
-MUTED = "#636e72"
-SHADOW_DARK = "#a3b1c6"
-SHADOW_LIGHT = "#ffffff"
+BG = "#171717"
+BG_DARK = "#1F1F1F"
+FG = "#F2F2F2"
+MUTED = "#9A9A9A"
+SHADOW_DARK = "#050505"
+SHADOW_LIGHT = "#2A2A2A"
 ACCENT = "#F97316"
+ACCENT_DARK = "#D65E0F"
+BORDER = "#333333"
 
 def rounded_rect(canvas, x1, y1, x2, y2, r, **kw):
     points = [x1+r,y1, x2-r,y1, x2,y1, x2,y1+r, x2,y2-r, x2,y2,
@@ -140,42 +142,42 @@ class App(APP_BASE):
         url_entry.bind("<Return>", lambda e: self.fetch())
         url_entry.bind("<Command-v>", self.on_paste_key)
         url_entry.bind("<Control-v>", self.on_paste_key)
-        NeuButton(row, text="Paste & Fetch", command=self.paste_url, width=124, height=34, color="#74C0FC", text_color="#1A0F02").pack(side="left")
+        NeuButton(row, text="Paste & Fetch", command=self.paste_url, width=132, height=36, color=ACCENT, text_color="#1A0F02").pack(side="left")
         body = ttk.Frame(pad)
         body.pack(fill="both", expand=True, pady=12)
-        self.quality_box = tk.Frame(body, bg=BG, highlightthickness=1, highlightbackground=SHADOW_DARK, bd=0)
+        self.quality_box = tk.Frame(body, bg=BG_DARK, highlightthickness=1, highlightbackground=BORDER, bd=0)
         self.quality_box.pack(fill="both", expand=True)
-        qtitle = tk.Label(self.quality_box, text="Quality", bg=BG, fg=FG, font=("Helvetica", 12, "bold"))
+        qtitle = tk.Label(self.quality_box, text="Quality", bg=BG_DARK, fg=FG, font=("Helvetica", 12, "bold"))
         qtitle.pack(anchor="w", padx=12, pady=(10, 4))
-        self.quality_inner = tk.Frame(self.quality_box, bg=BG)
+        self.quality_inner = tk.Frame(self.quality_box, bg=BG_DARK)
         self.quality_inner.pack(fill="both", expand=True, padx=8, pady=(0, 10))
-        footer = ttk.Frame(pad)
+        footer = ttk.Frame(pad, style="TFrame")
         footer.pack(fill="x", pady=(8, 0))
         dir_row = ttk.Frame(footer)
         dir_row.pack(fill="x")
         ttk.Label(dir_row, text="Output").pack(side="left")
         ttk.Entry(dir_row, textvariable=self.out, width=46).pack(side="left", fill="x", expand=True, padx=10)
-        NeuButton(dir_row, text="Browse", command=self.browse, width=92, height=34, color="#868E96", text_color="#FFFFFF").pack(side="left")
+        NeuButton(dir_row, text="Browse", command=self.browse, width=96, height=36, color="#3A3A3A", text_color=FG).pack(side="left")
         actions = ttk.Frame(footer)
         actions.pack(fill="x", pady=10)
-        NeuButton(actions, text="Download", command=self.download, width=118, height=36, color="#51CF66", text_color="#FFFFFF").pack(side="left")
-        self.cancel = NeuButton(actions, text="Cancel", command=self.cancel_download, width=96, height=36, color="#FF6B6B", text_color="#FFFFFF")
+        NeuButton(actions, text="Download", command=self.download, width=124, height=38, color=ACCENT, text_color="#1A0F02").pack(side="left")
+        self.cancel = NeuButton(actions, text="Cancel", command=self.cancel_download, width=100, height=38, color="#9C2F26", text_color=FG)
         self.cancel.pack(side="left", padx=10)
         self.cancel_state = False
         self.bar = ttk.Progressbar(actions, variable=self.progress_value, maximum=100, length=200)
         self.bar.pack(side="left", padx=10)
-        drop = tk.Frame(pad, bg=BG, highlightthickness=1, highlightbackground=SHADOW_DARK, bd=0)
+        drop = tk.Frame(pad, bg=BG_DARK, highlightthickness=1, highlightbackground=BORDER, bd=0)
         drop.pack(fill="x", pady=(10, 6))
-        dtitle = tk.Label(drop, text="Extract audio from video file", bg=BG, fg=FG, font=("Helvetica", 12, "bold"))
+        dtitle = tk.Label(drop, text="Extract audio from video file", bg=BG_DARK, fg=FG, font=("Helvetica", 12, "bold"))
         dtitle.pack(anchor="w", padx=12, pady=(10, 4))
-        self.drop_zone = tk.Label(drop, text="Drag and drop a video here\n(or click to select)", bg=BG_DARK, fg=MUTED, relief="flat", borderwidth=0, width=46, height=5, cursor="hand2", font=("Helvetica", 11))
+        self.drop_zone = tk.Label(drop, text="Drag and drop a video here\n(or click to select)", bg="#202020", fg=MUTED, relief="flat", borderwidth=1, highlightthickness=1, highlightbackground=BORDER, width=46, height=5, cursor="hand2", font=("Helvetica", 11))
         self.drop_zone.pack(fill="x", padx=12, pady=(0, 10))
         fmt_row = ttk.Frame(drop)
         fmt_row.pack(fill="x", padx=12, pady=(0, 10))
         ttk.Label(fmt_row, text="Output format").pack(side="left")
         ttk.Radiobutton(fmt_row, text="MP3", variable=self.extract_format, value="mp3").pack(side="left", padx=10)
         ttk.Radiobutton(fmt_row, text="M4A", variable=self.extract_format, value="m4a").pack(side="left")
-        NeuButton(fmt_row, text="Select and extract", command=self.select_and_extract, width=150, height=34).pack(side="right")
+        NeuButton(fmt_row, text="Select and extract", command=self.select_and_extract, width=156, height=36, color=ACCENT, text_color="#1A0F02").pack(side="right")
         if DND_FILES_AVAILABLE:
             self.drop_zone.drop_target_register(DND_FILES)
             self.drop_zone.dnd_bind("<<Drop>>", self.on_drop)
@@ -183,7 +185,7 @@ class App(APP_BASE):
         status_wrap = tk.Frame(pad, bg=BG)
         status_wrap.pack(fill="x")
         ttk.Label(status_wrap, textvariable=self.status, wraplength=520).pack(fill="x")
-        badge = tk.Label(self, text='#ckpt-yt-dlp-"clean-accent-ui" v0.1.7', bg=ACCENT, fg="#1A0F02", font=("Courier", 11), cursor="hand2", padx=10, pady=6)
+        badge = tk.Label(self, text='#ckpt-yt-dlp-"dark-orange-polish" v0.1.9', bg=ACCENT, fg="#1A0F02", font=("Courier", 11), cursor="hand2", padx=10, pady=6)
         badge.place(relx=1.0, rely=1.0, anchor="se", x=-10, y=-10)
         badge.bind("<Button-1>", lambda e: messagebox.showinfo("Changes", "v0.1.5: neumorphic GUI styling."))
 
