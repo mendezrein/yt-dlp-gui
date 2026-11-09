@@ -18,13 +18,15 @@ except ImportError:
 
 
 LABELS = {4320: "8k", 2160: "4k", 1440: "2k", 1080: "1080", 720: "720", 480: "480", 360: "360"}
-BG = "#FFFFFF"
-BG_DARK = "#F7F7F7"
-FG = "#1A1A1A"
-MUTED = "#6B6B6B"
+BG = "#171717"
+BG_DARK = "#1F1F1F"
+FG = "#F2F2F2"
+MUTED = "#9A9A9A"
+SHADOW_DARK = "#050505"
+SHADOW_LIGHT = "#2A2A2A"
 ACCENT = "#F97316"
-ACCENT_DARK = "#E66A12"
-BORDER = "#E5E5E5"
+ACCENT_DARK = "#D65E0F"
+BORDER = "#333333"
 
 def rounded_rect(canvas, x1, y1, x2, y2, r, **kw):
     points = [x1+r,y1, x2-r,y1, x2,y1, x2,y1+r, x2,y2-r, x2,y2,
@@ -33,7 +35,7 @@ def rounded_rect(canvas, x1, y1, x2, y2, r, **kw):
 
 
 class NeuButton(tk.Canvas):
-    def __init__(self, parent, text="", command=None, width=110, height=36, radius=999, font=("Helvetica", 10, "bold"), color=None, text_color=None):
+    def __init__(self, parent, text="", command=None, width=110, height=36, radius=22, font=("Helvetica", 10, "bold"), color=None, text_color=None):
         super().__init__(parent, width=width, height=height, bg=BG, highlightthickness=0, cursor="hand2")
         self.text = text
         self.command = command
@@ -71,16 +73,26 @@ class NeuButton(tk.Canvas):
 
     def draw(self):
         self.delete("all")
-        w = int(self["width"]); h = int(self["height"]); r = min(self.radius, w // 2, h // 2)
+        w = int(self["width"]); h = int(self["height"]); r = self.radius
         color = self.color
-        flat = color if not self._pressed else (self._dark(color) if color != BG else "#E8E8E8")
+        dark = self._dark(color)
         if not self._enabled:
-            rounded_rect(self, 1, 1, w-1, h-1, r, fill="#F0F0F0", outline=BORDER, width=1)
+            rounded_rect(self, 2, 3, w-2, h-1, r, fill=BG_DARK, outline=SHADOW_DARK, width=0)
             self.create_text(w//2, h//2, text=self.text, fill=MUTED, font=self.font)
             return
-        rounded_rect(self, 1, 1, w-1, h-1, r, fill=flat, outline=BORDER if color == BG else color, width=1)
+        if color == BG:
+            if self._pressed:
+                rounded_rect(self, 4, 4, w-2, h-2, r, fill=BG_DARK, outline=SHADOW_DARK, width=1)
+                rounded_rect(self, 3, 3, w-3, h-3, r, fill=BG, outline="", width=0)
+            else:
+                rounded_rect(self, 3, 4, w-1, h, r, fill=SHADOW_DARK, outline="", width=0)
+                rounded_rect(self, 1, 2, w-3, h-2, r, fill=SHADOW_LIGHT, outline="", width=0)
+                rounded_rect(self, 2, 3, w-2, h-1, r, fill=BG, outline="", width=0)
+        else:
+            offset = 2 if not self._pressed else 0
+            rounded_rect(self, 3, 5, w-1, h+1, r, fill=dark, outline="", width=0)
+            rounded_rect(self, 2-offset, 2-offset, w-2-offset, h-2-offset, r, fill=color, outline="", width=0)
         self.create_text(w//2, h//2, text=self.text, fill=self.text_color, font=self.font)
-
 
 
 
@@ -111,7 +123,7 @@ class App(APP_BASE):
             pass
         style.configure('TFrame', background=BG)
         style.configure('TLabel', background=BG, foreground=FG)
-        style.configure('TLabelframe', background=BG, bordercolor=BORDER, relief="flat")
+        style.configure('TLabelframe', background=BG, bordercolor=SHADOW_DARK, relief='flat')
         style.configure('TLabelframe.Label', background=BG, foreground=FG)
         style.configure('TEntry', fieldbackground=BG, foreground=FG, borderwidth=0, insertcolor=FG)
         style.configure('TRadiobutton', background=BG, foreground=FG)
@@ -133,11 +145,11 @@ class App(APP_BASE):
         NeuButton(row, text="Paste & Fetch", command=self.paste_url, width=132, height=36, color=ACCENT, text_color="#1A0F02").pack(side="left")
         body = ttk.Frame(pad)
         body.pack(fill="both", expand=True, pady=12)
-        self.quality_box = tk.Frame(body, bg=BG, highlightthickness=1, highlightbackground=BORDER, bd=0)
+        self.quality_box = tk.Frame(body, bg=BG_DARK, highlightthickness=1, highlightbackground=BORDER, bd=0)
         self.quality_box.pack(fill="both", expand=True)
-        qtitle = tk.Label(self.quality_box, text="Quality", bg=BG, fg=FG, font=("Helvetica", 12, "bold"))
+        qtitle = tk.Label(self.quality_box, text="Quality", bg=BG_DARK, fg=FG, font=("Helvetica", 12, "bold"))
         qtitle.pack(anchor="w", padx=12, pady=(10, 4))
-        self.quality_inner = tk.Frame(self.quality_box, bg=BG)
+        self.quality_inner = tk.Frame(self.quality_box, bg=BG_DARK)
         self.quality_inner.pack(fill="both", expand=True, padx=8, pady=(0, 10))
         footer = ttk.Frame(pad, style="TFrame")
         footer.pack(fill="x", pady=(8, 0))
@@ -145,7 +157,7 @@ class App(APP_BASE):
         dir_row.pack(fill="x")
         ttk.Label(dir_row, text="Output").pack(side="left")
         ttk.Entry(dir_row, textvariable=self.out, width=46).pack(side="left", fill="x", expand=True, padx=10)
-        NeuButton(dir_row, text="Browse", command=self.browse, width=96, height=36, color=BG_DARK, text_color=FG).pack(side="left")
+        NeuButton(dir_row, text="Browse", command=self.browse, width=96, height=36, color="#3A3A3A", text_color=FG).pack(side="left")
         actions = ttk.Frame(footer)
         actions.pack(fill="x", pady=10)
         NeuButton(actions, text="Download", command=self.download, width=124, height=38, color=ACCENT, text_color="#1A0F02").pack(side="left")
@@ -154,11 +166,11 @@ class App(APP_BASE):
         self.cancel_state = False
         self.bar = ttk.Progressbar(actions, variable=self.progress_value, maximum=100, length=200)
         self.bar.pack(side="left", padx=10)
-        drop = tk.Frame(pad, bg=BG, highlightthickness=1, highlightbackground=BORDER, bd=0)
+        drop = tk.Frame(pad, bg=BG_DARK, highlightthickness=1, highlightbackground=BORDER, bd=0)
         drop.pack(fill="x", pady=(10, 6))
-        dtitle = tk.Label(drop, text="Extract audio from video file", bg=BG, fg=FG, font=("Helvetica", 12, "bold"))
+        dtitle = tk.Label(drop, text="Extract audio from video file", bg=BG_DARK, fg=FG, font=("Helvetica", 12, "bold"))
         dtitle.pack(anchor="w", padx=12, pady=(10, 4))
-        self.drop_zone = tk.Label(drop, text="Drag and drop a video here\n(or click to select)", bg=BG, fg=MUTED, relief="flat", borderwidth=1, highlightthickness=1, highlightbackground=BORDER, width=46, height=5, cursor="hand2", font=("Helvetica", 11))
+        self.drop_zone = tk.Label(drop, text="Drag and drop a video here\n(or click to select)", bg="#202020", fg=MUTED, relief="flat", borderwidth=1, highlightthickness=1, highlightbackground=BORDER, width=46, height=5, cursor="hand2", font=("Helvetica", 11))
         self.drop_zone.pack(fill="x", padx=12, pady=(0, 10))
         fmt_row = ttk.Frame(drop)
         fmt_row.pack(fill="x", padx=12, pady=(0, 10))
@@ -173,7 +185,7 @@ class App(APP_BASE):
         status_wrap = tk.Frame(pad, bg=BG)
         status_wrap.pack(fill="x")
         ttk.Label(status_wrap, textvariable=self.status, wraplength=520).pack(fill="x")
-        badge = tk.Label(self, text='#ckpt-yt-dlp-"white-pill-clean" v0.2.0', bg=ACCENT, fg="#1A0F02", font=("Courier", 11), cursor="hand2", padx=10, pady=6)
+        badge = tk.Label(self, text='#ckpt-yt-dlp-"dark-orange-polish" v0.1.9', bg=ACCENT, fg="#1A0F02", font=("Courier", 11), cursor="hand2", padx=10, pady=6)
         badge.place(relx=1.0, rely=1.0, anchor="se", x=-10, y=-10)
         badge.bind("<Button-1>", lambda e: messagebox.showinfo("Changes", "v0.1.5: neumorphic GUI styling."))
 
