@@ -17,3 +17,8 @@ Features:
 
 Version: v0.1.5
 Change: neumorphic-gui
+
+Windows:
+- run.bat launches app.py on Windows.
+- install-deps.bat installs Python deps.
+- GitHub Actions workflow builds Windows exe on tags/push.

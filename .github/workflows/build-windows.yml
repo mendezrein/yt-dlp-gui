@@ -1,0 +1,48 @@
+name: Build Windows app
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Build with PyInstaller
+        run: >
+          python -m PyInstaller --noconfirm --windowed
+          --name yt-dlp-gui
+          --collect-all tkinterdnd2
+          app.py
+
+      - name: Zip Windows build
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/yt-dlp-gui/* -DestinationPath yt-dlp-windows.zip -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yt-dlp-windows
+          path: yt-dlp-windows.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: yt-dlp-windows.zip
