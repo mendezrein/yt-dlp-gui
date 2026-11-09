@@ -19,3 +19,14 @@ Double-click `yt-dlp.app` (not tracked; release asset on GitHub).
 - Paste URL and auto-fetch.
 - Drag-and-drop/click-to-select video for audio extraction.
 - Neumorphic styling.
+
+## Windows
+
+Run from source:
+```bat
+install-deps.bat
+run.bat
+```
+Requires Python, `yt-dlp`, and `ffmpeg` on PATH.
+
+Prebuilt Windows build is available in GitHub Releases as `yt-dlp-windows.zip`.
