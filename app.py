@@ -165,7 +165,7 @@ class App(APP_BASE):
         status_wrap = tk.Frame(pad, bg=BG)
         status_wrap.pack(fill="x")
         ttk.Label(status_wrap, textvariable=self.status, wraplength=520).pack(fill="x")
-        badge = tk.Label(self, text='#ckpt-yt-dlp-"neumorphic-gui" v0.1.5', bg=ACCENT, fg="#1A0F02", font=("Courier", 11), cursor="hand2", padx=10, pady=6)
+        badge = tk.Label(self, text='#ckpt-yt-dlp-"windows-build" v0.1.6', bg=ACCENT, fg="#1A0F02", font=("Courier", 11), cursor="hand2", padx=10, pady=6)
         badge.place(relx=1.0, rely=1.0, anchor="se", x=-10, y=-10)
         badge.bind("<Button-1>", lambda e: messagebox.showinfo("Changes", "v0.1.5: neumorphic GUI styling."))
 

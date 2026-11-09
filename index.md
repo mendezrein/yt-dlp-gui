@@ -15,8 +15,8 @@ Features:
 - Neumorphic UI styling.
 - macOS app bundle available.
 
-Version: v0.1.5
-Change: neumorphic-gui
+Version: v0.1.6
+Change: windows-build
 
 Windows:
 - run.bat launches app.py on Windows.
