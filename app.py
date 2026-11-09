@@ -15,7 +15,67 @@ except ImportError:
     DND_FILES_AVAILABLE = False
     APP_BASE = tk.Tk
 
+
+
 LABELS = {4320: "8k", 2160: "4k", 1440: "2k", 1080: "1080", 720: "720", 480: "480", 360: "360"}
+BG = "#e0e5ec"
+BG_DARK = "#d1d9e6"
+FG = "#2d3436"
+MUTED = "#636e72"
+SHADOW_DARK = "#a3b1c6"
+SHADOW_LIGHT = "#ffffff"
+ACCENT = "#F97316"
+
+def rounded_rect(canvas, x1, y1, x2, y2, r, **kw):
+    points = [x1+r,y1, x2-r,y1, x2,y1, x2,y1+r, x2,y2-r, x2,y2,
+              x2-r,y2, x1+r,y2, x1,y2, x1,y2-r, x1,y1+r, x1,y1]
+    return canvas.create_polygon(points, smooth=True, **kw)
+
+
+class NeuButton(tk.Canvas):
+    def __init__(self, parent, text="", command=None, width=110, height=36, radius=16, font=("Helvetica", 10, "bold")):
+        super().__init__(parent, width=width, height=height, bg=BG, highlightthickness=0, cursor="hand2")
+        self.text = text
+        self.command = command
+        self.radius = radius
+        self.font = font
+        self._pressed = False
+        self._enabled = True
+        self.bind("<ButtonPress-1>", lambda e: self._set(True) if self._enabled else None)
+        self.bind("<ButtonRelease-1>", lambda e: (self._set(False), command() if (command and self._enabled) else None))
+        self.bind("<Leave>", lambda e: self._set(False))
+        self.draw()
+
+    def _set(self, pressed):
+        if not self._enabled:
+            return
+        self._pressed = pressed
+        self.draw()
+
+    def set_enabled(self, enabled):
+        self._enabled = bool(enabled)
+        self._pressed = False
+        self.configure(cursor="hand2" if enabled else "arrow")
+        self.draw()
+
+    def draw(self):
+        self.delete("all")
+        w = int(self["width"]); h = int(self["height"]); r = self.radius
+        if not self._enabled:
+            rounded_rect(self, 2, 3, w-2, h-1, r, fill=BG_DARK, outline=SHADOW_DARK, width=0)
+            self.create_text(w//2, h//2, text=self.text, fill=MUTED, font=self.font)
+            return
+        if self._pressed:
+            rounded_rect(self, 4, 4, w-2, h-2, r, fill=BG_DARK, outline=SHADOW_DARK, width=1)
+            rounded_rect(self, 3, 3, w-3, h-3, r, fill=BG, outline="", width=0)
+        else:
+            rounded_rect(self, 3, 4, w-1, h, r, fill=SHADOW_DARK, outline="", width=0)
+            rounded_rect(self, 1, 2, w-3, h-2, r, fill=SHADOW_LIGHT, outline="", width=0)
+            rounded_rect(self, 2, 3, w-2, h-1, r, fill=BG, outline="", width=0)
+        self.create_text(w//2, h//2, text=self.text, fill=FG, font=self.font)
+
+
+
 
 
 class App(APP_BASE):
@@ -34,58 +94,80 @@ class App(APP_BASE):
         self.log = queue.Queue()
         self.proc = None
         self.worker = None
+        self.configure(bg=BG)
+        style = ttk.Style(self)
+        try:
+            style.theme_use('clam')
+        except Exception:
+            pass
+        style.configure('TFrame', background=BG)
+        style.configure('TLabel', background=BG, foreground=FG)
+        style.configure('TLabelframe', background=BG, bordercolor=SHADOW_DARK, relief='flat')
+        style.configure('TLabelframe.Label', background=BG, foreground=FG)
+        style.configure('TEntry', fieldbackground=BG, foreground=FG, borderwidth=0, insertcolor=FG)
+        style.configure('TRadiobutton', background=BG, foreground=FG)
+        style.configure('TProgressbar', background=ACCENT, troughcolor=BG_DARK, borderwidth=0)
         self.build()
         self.after(80, self.poll_log)
 
     def build(self):
-        pad = ttk.Frame(self, padding=12)
+        pad = ttk.Frame(self, padding=14)
         pad.pack(fill="both", expand=True)
         row = ttk.Frame(pad)
         row.pack(fill="x")
         ttk.Label(row, text="URL").pack(side="left")
         url_entry = ttk.Entry(row, textvariable=self.url, width=56)
-        url_entry.pack(side="left", fill="x", expand=True, padx=8)
+        url_entry.pack(side="left", fill="x", expand=True, padx=10)
         url_entry.bind("<Return>", lambda e: self.fetch())
         url_entry.bind("<Command-v>", self.on_paste_key)
         url_entry.bind("<Control-v>", self.on_paste_key)
-        ttk.Button(row, text="Fetch", command=self.fetch).pack(side="left")
-        ttk.Button(row, text="Paste", command=self.paste_url).pack(side="left", padx=(6, 0))
+        NeuButton(row, text="Fetch", command=self.fetch, width=86, height=34).pack(side="left")
+        NeuButton(row, text="Paste", command=self.paste_url, width=86, height=34).pack(side="left", padx=(8, 0))
         body = ttk.Frame(pad)
-        body.pack(fill="both", expand=True, pady=10)
-        self.quality_box = ttk.LabelFrame(body, text="Quality")
+        body.pack(fill="both", expand=True, pady=12)
+        self.quality_box = tk.Frame(body, bg=BG, highlightthickness=1, highlightbackground=SHADOW_DARK, bd=0)
         self.quality_box.pack(fill="both", expand=True)
+        qtitle = tk.Label(self.quality_box, text="Quality", bg=BG, fg=FG, font=("Helvetica", 12, "bold"))
+        qtitle.pack(anchor="w", padx=12, pady=(10, 4))
+        self.quality_inner = tk.Frame(self.quality_box, bg=BG)
+        self.quality_inner.pack(fill="both", expand=True, padx=8, pady=(0, 10))
         footer = ttk.Frame(pad)
         footer.pack(fill="x", pady=(8, 0))
         dir_row = ttk.Frame(footer)
         dir_row.pack(fill="x")
         ttk.Label(dir_row, text="Output").pack(side="left")
-        ttk.Entry(dir_row, textvariable=self.out, width=46).pack(side="left", fill="x", expand=True, padx=8)
-        ttk.Button(dir_row, text="Browse", command=self.browse).pack(side="left")
+        ttk.Entry(dir_row, textvariable=self.out, width=46).pack(side="left", fill="x", expand=True, padx=10)
+        NeuButton(dir_row, text="Browse", command=self.browse, width=86, height=34).pack(side="left")
         actions = ttk.Frame(footer)
-        actions.pack(fill="x", pady=8)
-        ttk.Button(actions, text="Download", command=self.download).pack(side="left")
-        self.cancel = ttk.Button(actions, text="Cancel", command=self.cancel_download, state="disabled")
-        self.cancel.pack(side="left", padx=8)
-        self.bar = ttk.Progressbar(actions, variable=self.progress_value, maximum=100, length=220)
-        self.bar.pack(side="left", padx=8)
-        drop = tk.LabelFrame(pad, text="Extract audio from video file", padx=8, pady=8)
-        drop.pack(fill="x", pady=(8, 4))
-        self.drop_zone = tk.Label(drop, text="Drag and drop a video here\n(or click to select)", relief="groove", borderwidth=2, width=46, height=4, bg="#F3F4F6", cursor="hand2")
-        self.drop_zone.pack(fill="x")
+        actions.pack(fill="x", pady=10)
+        NeuButton(actions, text="Download", command=self.download, width=104, height=36).pack(side="left")
+        self.cancel = NeuButton(actions, text="Cancel", command=self.cancel_download, width=86, height=36)
+        self.cancel.pack(side="left", padx=10)
+        self.cancel_state = False
+        self.bar = ttk.Progressbar(actions, variable=self.progress_value, maximum=100, length=200)
+        self.bar.pack(side="left", padx=10)
+        drop = tk.Frame(pad, bg=BG, highlightthickness=1, highlightbackground=SHADOW_DARK, bd=0)
+        drop.pack(fill="x", pady=(10, 6))
+        dtitle = tk.Label(drop, text="Extract audio from video file", bg=BG, fg=FG, font=("Helvetica", 12, "bold"))
+        dtitle.pack(anchor="w", padx=12, pady=(10, 4))
+        self.drop_zone = tk.Label(drop, text="Drag and drop a video here\n(or click to select)", bg=BG_DARK, fg=MUTED, relief="flat", borderwidth=0, width=46, height=5, cursor="hand2", font=("Helvetica", 11))
+        self.drop_zone.pack(fill="x", padx=12, pady=(0, 10))
         fmt_row = ttk.Frame(drop)
-        fmt_row.pack(fill="x", pady=(6, 0))
+        fmt_row.pack(fill="x", padx=12, pady=(0, 10))
         ttk.Label(fmt_row, text="Output format").pack(side="left")
-        ttk.Radiobutton(fmt_row, text="MP3", variable=self.extract_format, value="mp3").pack(side="left", padx=8)
+        ttk.Radiobutton(fmt_row, text="MP3", variable=self.extract_format, value="mp3").pack(side="left", padx=10)
         ttk.Radiobutton(fmt_row, text="M4A", variable=self.extract_format, value="m4a").pack(side="left")
-        ttk.Button(fmt_row, text="Select and extract", command=self.select_and_extract).pack(side="right")
+        NeuButton(fmt_row, text="Select and extract", command=self.select_and_extract, width=150, height=34).pack(side="right")
         if DND_FILES_AVAILABLE:
             self.drop_zone.drop_target_register(DND_FILES)
             self.drop_zone.dnd_bind("<<Drop>>", self.on_drop)
         self.drop_zone.bind("<Button-1>", lambda e: self.select_and_extract())
-        ttk.Label(pad, textvariable=self.status, wraplength=520).pack(fill="x")
-        badge = tk.Label(self, text='#ckpt-yt-dlp-"auto-fetch-paste" v0.1.4', bg="#F97316", fg="#1A0F02", font=("Courier", 11), cursor="hand2", padx=10, pady=6)
+        status_wrap = tk.Frame(pad, bg=BG)
+        status_wrap.pack(fill="x")
+        ttk.Label(status_wrap, textvariable=self.status, wraplength=520).pack(fill="x")
+        badge = tk.Label(self, text='#ckpt-yt-dlp-"neumorphic-gui" v0.1.5', bg=ACCENT, fg="#1A0F02", font=("Courier", 11), cursor="hand2", padx=10, pady=6)
         badge.place(relx=1.0, rely=1.0, anchor="se", x=-10, y=-10)
-        badge.bind("<Button-1>", lambda e: messagebox.showinfo("Changes", "v0.1.4: auto-fetch after paste and Enter key."))
+        badge.bind("<Button-1>", lambda e: messagebox.showinfo("Changes", "v0.1.5: neumorphic GUI styling."))
 
     def valid_url(self, url):
         parsed = urlparse(url.strip())
@@ -124,20 +206,20 @@ class App(APP_BASE):
         self.log.put(("formats", standard, title))
 
     def clear_quality(self):
-        for child in self.quality_box.winfo_children():
+        for child in self.quality_inner.winfo_children():
             child.destroy()
 
     def render_quality(self, heights, title):
         self.clear_quality()
-        ttk.Label(self.quality_box, text=title[:70] if title else "Available options").pack(anchor="w", padx=8, pady=(6, 2))
+        ttk.Label(self.quality_inner, text=title[:70] if title else "Available options").pack(anchor="w", pady=(0, 4))
         if heights:
-            ttk.Radiobutton(self.quality_box, text="Best (highest available)", variable=self.choice, value="v:best").pack(anchor="w", padx=8)
+            ttk.Radiobutton(self.quality_inner, text="Best (highest available)", variable=self.choice, value="v:best").pack(anchor="w", padx=8)
             for h in heights:
                 label = LABELS.get(h, f"{h}")
-                ttk.Radiobutton(self.quality_box, text=f"{label} video + audio", variable=self.choice, value=f"v:{h}").pack(anchor="w", padx=8)
-        ttk.Separator(self.quality_box, orient="horizontal").pack(fill="x", padx=8, pady=6)
-        ttk.Radiobutton(self.quality_box, text="Audio only: M4A", variable=self.choice, value="a:m4a").pack(anchor="w", padx=8)
-        ttk.Radiobutton(self.quality_box, text="Audio only: MP3", variable=self.choice, value="a:mp3").pack(anchor="w", padx=8)
+                ttk.Radiobutton(self.quality_inner, text=f"{label} video + audio", variable=self.choice, value=f"v:{h}").pack(anchor="w", padx=8)
+        ttk.Separator(self.quality_inner, orient="horizontal").pack(fill="x", padx=8, pady=6)
+        ttk.Radiobutton(self.quality_inner, text="Audio only: M4A", variable=self.choice, value="a:m4a").pack(anchor="w", padx=8)
+        ttk.Radiobutton(self.quality_inner, text="Audio only: MP3", variable=self.choice, value="a:mp3").pack(anchor="w", padx=8)
         if heights:
             self.choice.set("v:best")
         else:
@@ -161,7 +243,7 @@ class App(APP_BASE):
             return
         self.bar["value"] = 0
         self.status.set("Starting download...")
-        self.cancel.configure(state="normal")
+        self.cancel.set_enabled(True)
         self.start_worker(self.download_worker, url, selected, str(out_dir))
 
     def download_worker(self, url, selected, out_dir):
@@ -198,7 +280,7 @@ class App(APP_BASE):
         if self.proc:
             self.proc.terminate()
             self.status.set("Cancelled.")
-            self.cancel.configure(state="disabled")
+            self.cancel.set_enabled(False)
 
     def paste_url(self):
         try:
@@ -253,7 +335,7 @@ class App(APP_BASE):
             self.log.put(("error", " | ".join(tail)))
 
     def start_worker(self, target, *args):
-        self.cancel.configure(state="disabled")
+        self.cancel.set_enabled(False)
         self.worker = threading.Thread(target=target, args=args, daemon=True)
         self.worker.start()
 
@@ -273,10 +355,10 @@ class App(APP_BASE):
                 elif kind == "done":
                     self.progress_value.set(100)
                     self.status.set(item[1])
-                    self.cancel.configure(state="disabled")
+                    self.cancel.set_enabled(False)
                 elif kind == "error":
                     self.status.set(item[1])
-                    self.cancel.configure(state="disabled")
+                    self.cancel.set_enabled(False)
         except queue.Empty:
             pass
         self.after(80, self.poll_log)

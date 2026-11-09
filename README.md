@@ -1,6 +1,6 @@
 # yt-dlp GUI
 
-Tkinter app for yt-dlp downloads with macOS Quick Look compatible H.264/AAC output.
+Tkinter app for yt-dlp downloads with macOS Quick Look compatible H.264/AAC output and neumorphic UI.
 
 ## Run
 
@@ -18,3 +18,4 @@ Double-click `yt-dlp.app` (not tracked; release asset on GitHub).
 - Audio-only M4A/MP3.
 - Paste URL and auto-fetch.
 - Drag-and-drop/click-to-select video for audio extraction.
+- Neumorphic styling.
