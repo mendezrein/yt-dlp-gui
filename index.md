@@ -15,8 +15,8 @@ Features:
 - Neumorphic UI styling.
 - macOS app bundle available.
 
-Version: v0.1.8
-Change: customtkinter
+Version: v0.1.7
+Change: clean-accent-ui
 
 Windows:
 - run.bat launches app.py on Windows.

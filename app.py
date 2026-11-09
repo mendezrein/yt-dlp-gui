@@ -4,27 +4,104 @@ import re
 import subprocess
 import threading
 from pathlib import Path
-import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 from urllib.parse import urlparse
+import tkinter as tk
+try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD
+    DND_FILES_AVAILABLE = True
+    APP_BASE = TkinterDnD.Tk
+except ImportError:
+    DND_FILES_AVAILABLE = False
+    APP_BASE = tk.Tk
 
-import customtkinter as ctk
-from tkinterdnd2 import DND_FILES, TkinterDnD
+
 
 LABELS = {4320: "8k", 2160: "4k", 1440: "2k", 1080: "1080", 720: "720", 480: "480", 360: "360"}
-ORANGE = "#F97316"
-GREEN = "#51CF66"
-RED = "#FF6B6B"
-GREY = "#868E96"
-BLUE = "#74C0FC"
+BG = "#e0e5ec"
+BG_DARK = "#d1d9e6"
+FG = "#2d3436"
+MUTED = "#636e72"
+SHADOW_DARK = "#a3b1c6"
+SHADOW_LIGHT = "#ffffff"
+ACCENT = "#F97316"
+
+def rounded_rect(canvas, x1, y1, x2, y2, r, **kw):
+    points = [x1+r,y1, x2-r,y1, x2,y1, x2,y1+r, x2,y2-r, x2,y2,
+              x2-r,y2, x1+r,y2, x1,y2, x1,y2-r, x1,y1+r, x1,y1]
+    return canvas.create_polygon(points, smooth=True, **kw)
 
 
-class App(ctk.CTk, TkinterDnD.DnDWrapper):
+class NeuButton(tk.Canvas):
+    def __init__(self, parent, text="", command=None, width=110, height=36, radius=22, font=("Helvetica", 10, "bold"), color=None, text_color=None):
+        super().__init__(parent, width=width, height=height, bg=BG, highlightthickness=0, cursor="hand2")
+        self.text = text
+        self.command = command
+        self.radius = radius
+        self.font = font
+        self.color = color or BG
+        self.text_color = text_color or ("#FFFFFF" if color and color != BG else FG)
+        self._pressed = False
+        self._enabled = True
+        self.bind("<ButtonPress-1>", lambda e: self._set(True) if self._enabled else None)
+        self.bind("<ButtonRelease-1>", lambda e: (self._set(False), command() if (command and self._enabled) else None))
+        self.bind("<Leave>", lambda e: self._set(False))
+        self.draw()
+
+    def _set(self, pressed):
+        if not self._enabled:
+            return
+        self._pressed = pressed
+        self.draw()
+
+    def set_enabled(self, enabled):
+        self._enabled = bool(enabled)
+        self._pressed = False
+        self.configure(cursor="hand2" if enabled else "arrow")
+        self.draw()
+
+    def _dark(self, hexcolor):
+        if hexcolor == BG:
+            return BG_DARK
+        hexcolor = hexcolor.lstrip("#")
+        r = max(0, int(hexcolor[0:2], 16) - 35)
+        g = max(0, int(hexcolor[2:4], 16) - 35)
+        b = max(0, int(hexcolor[4:6], 16) - 35)
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def draw(self):
+        self.delete("all")
+        w = int(self["width"]); h = int(self["height"]); r = self.radius
+        color = self.color
+        dark = self._dark(color)
+        if not self._enabled:
+            rounded_rect(self, 2, 3, w-2, h-1, r, fill=BG_DARK, outline=SHADOW_DARK, width=0)
+            self.create_text(w//2, h//2, text=self.text, fill=MUTED, font=self.font)
+            return
+        if color == BG:
+            if self._pressed:
+                rounded_rect(self, 4, 4, w-2, h-2, r, fill=BG_DARK, outline=SHADOW_DARK, width=1)
+                rounded_rect(self, 3, 3, w-3, h-3, r, fill=BG, outline="", width=0)
+            else:
+                rounded_rect(self, 3, 4, w-1, h, r, fill=SHADOW_DARK, outline="", width=0)
+                rounded_rect(self, 1, 2, w-3, h-2, r, fill=SHADOW_LIGHT, outline="", width=0)
+                rounded_rect(self, 2, 3, w-2, h-1, r, fill=BG, outline="", width=0)
+        else:
+            offset = 2 if not self._pressed else 0
+            rounded_rect(self, 3, 5, w-1, h+1, r, fill=dark, outline="", width=0)
+            rounded_rect(self, 2-offset, 2-offset, w-2-offset, h-2-offset, r, fill=color, outline="", width=0)
+        self.create_text(w//2, h//2, text=self.text, fill=self.text_color, font=self.font)
+
+
+
+
+
+
+class App(APP_BASE):
     def __init__(self):
         super().__init__()
-        self.TkdndVersion = TkinterDnD._require(self)
         self.title("yt-dlp GUI")
-        self.minsize(600, 500)
+        self.minsize(560, 430)
         self.url = tk.StringVar()
         self.out_dir = Path.home() / "Downloads"
         self.out = tk.StringVar(value=str(self.out_dir))
@@ -32,83 +109,83 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.extract_format = tk.StringVar(value="mp3")
         self.last_drop = None
         self.progress_value = tk.DoubleVar()
-        self.status = tk.StringVar(value="Paste a link, then fetch.")
+        self.status = tk.StringVar(value="Paste a link, then Fetch.")
         self.log = queue.Queue()
         self.proc = None
         self.worker = None
-        ctk.set_appearance_mode("light")
-        ctk.set_default_color_theme("blue")
-        self.configure(fg_color=("#F3F6FB", "#1F1F1F"))
+        self.configure(bg=BG)
+        style = ttk.Style(self)
+        try:
+            style.theme_use('clam')
+        except Exception:
+            pass
+        style.configure('TFrame', background=BG)
+        style.configure('TLabel', background=BG, foreground=FG)
+        style.configure('TLabelframe', background=BG, bordercolor=SHADOW_DARK, relief='flat')
+        style.configure('TLabelframe.Label', background=BG, foreground=FG)
+        style.configure('TEntry', fieldbackground=BG, foreground=FG, borderwidth=0, insertcolor=FG)
+        style.configure('TRadiobutton', background=BG, foreground=FG)
+        style.configure('TProgressbar', background=ACCENT, troughcolor=BG_DARK, borderwidth=0)
         self.build()
         self.after(80, self.poll_log)
 
     def build(self):
-        pad = ctk.CTkFrame(self, corner_radius=20)
-        pad.pack(fill="both", expand=True, padx=18, pady=18)
-
-        row = ctk.CTkFrame(pad, fg_color="transparent")
-        row.pack(fill="x", pady=(0, 12))
-        ctk.CTkLabel(row, text="URL").pack(side="left", padx=(0, 10))
-        self.url_entry = ctk.CTkEntry(row, textvariable=self.url, corner_radius=12, height=34)
-        self.url_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
-        self.url_entry.bind("<Return>", lambda e: self.fetch())
-        self.url_entry.bind("<Command-v>", self.on_paste_key)
-        self.url_entry.bind("<Control-v>", self.on_paste_key)
-        ctk.CTkButton(row, text="Paste & Fetch", command=self.paste_url, corner_radius=12, height=34, width=124,
-                       fg_color=BLUE, text_color="#1A0F02", hover_color="#4DABF7").pack(side="left")
-
-        body = ctk.CTkFrame(pad, corner_radius=16)
-        body.pack(fill="both", expand=True, pady=(0, 12))
-        ctk.CTkLabel(body, text="Quality", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=16, pady=(14, 8))
-        self.quality_inner = ctk.CTkScrollableFrame(body, fg_color="transparent", corner_radius=0)
-        self.quality_inner.pack(fill="both", expand=True, padx=14, pady=(0, 14))
-
-        footer = ctk.CTkFrame(pad, fg_color="transparent")
-        footer.pack(fill="x", pady=(0, 8))
-        dir_row = ctk.CTkFrame(footer, fg_color="transparent")
+        pad = ttk.Frame(self, padding=14)
+        pad.pack(fill="both", expand=True)
+        row = ttk.Frame(pad)
+        row.pack(fill="x")
+        ttk.Label(row, text="URL").pack(side="left")
+        url_entry = ttk.Entry(row, textvariable=self.url, width=56)
+        url_entry.pack(side="left", fill="x", expand=True, padx=10)
+        url_entry.bind("<Return>", lambda e: self.fetch())
+        url_entry.bind("<Command-v>", self.on_paste_key)
+        url_entry.bind("<Control-v>", self.on_paste_key)
+        NeuButton(row, text="Paste & Fetch", command=self.paste_url, width=124, height=34, color="#74C0FC", text_color="#1A0F02").pack(side="left")
+        body = ttk.Frame(pad)
+        body.pack(fill="both", expand=True, pady=12)
+        self.quality_box = tk.Frame(body, bg=BG, highlightthickness=1, highlightbackground=SHADOW_DARK, bd=0)
+        self.quality_box.pack(fill="both", expand=True)
+        qtitle = tk.Label(self.quality_box, text="Quality", bg=BG, fg=FG, font=("Helvetica", 12, "bold"))
+        qtitle.pack(anchor="w", padx=12, pady=(10, 4))
+        self.quality_inner = tk.Frame(self.quality_box, bg=BG)
+        self.quality_inner.pack(fill="both", expand=True, padx=8, pady=(0, 10))
+        footer = ttk.Frame(pad)
+        footer.pack(fill="x", pady=(8, 0))
+        dir_row = ttk.Frame(footer)
         dir_row.pack(fill="x")
-        ctk.CTkLabel(dir_row, text="Output").pack(side="left", padx=(0, 10))
-        ctk.CTkEntry(dir_row, textvariable=self.out, corner_radius=12, height=34).pack(side="left", fill="x", expand=True, padx=(0, 8))
-        ctk.CTkButton(dir_row, text="Browse", command=self.browse, corner_radius=12, height=34, width=96,
-                       fg_color=GREY, text_color="#FFFFFF", hover_color="#6C757D").pack(side="left")
-
-        actions = ctk.CTkFrame(footer, fg_color="transparent")
+        ttk.Label(dir_row, text="Output").pack(side="left")
+        ttk.Entry(dir_row, textvariable=self.out, width=46).pack(side="left", fill="x", expand=True, padx=10)
+        NeuButton(dir_row, text="Browse", command=self.browse, width=92, height=34, color="#868E96", text_color="#FFFFFF").pack(side="left")
+        actions = ttk.Frame(footer)
         actions.pack(fill="x", pady=10)
-        ctk.CTkButton(actions, text="Download", command=self.download, corner_radius=12, height=36, width=118,
-                       fg_color=GREEN, text_color="#FFFFFF", hover_color="#37B24D").pack(side="left")
-        self.cancel = ctk.CTkButton(actions, text="Cancel", command=self.cancel_download, corner_radius=12, height=36, width=96,
-                                     fg_color=RED, text_color="#FFFFFF", hover_color="#E03131", state="disabled")
+        NeuButton(actions, text="Download", command=self.download, width=118, height=36, color="#51CF66", text_color="#FFFFFF").pack(side="left")
+        self.cancel = NeuButton(actions, text="Cancel", command=self.cancel_download, width=96, height=36, color="#FF6B6B", text_color="#FFFFFF")
         self.cancel.pack(side="left", padx=10)
-        self.bar = ctk.CTkProgressBar(actions, variable=self.progress_value, width=220, corner_radius=8,
-                                      progress_color=ORANGE)
+        self.cancel_state = False
+        self.bar = ttk.Progressbar(actions, variable=self.progress_value, maximum=100, length=200)
         self.bar.pack(side="left", padx=10)
-
-        drop = ctk.CTkFrame(pad, corner_radius=16)
-        drop.pack(fill="x", pady=(8, 8))
-        ctk.CTkLabel(drop, text="Extract audio from video file", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=16, pady=(14, 8))
-        self.drop_zone = ctk.CTkLabel(drop, text="Drag and drop a video here\n(or click to select)",
-                                      corner_radius=12, fg_color=("#ECEFF4", "#2A2A2A"), text_color=("gray25", "gray85"),
-                                      height=88, cursor="hand2")
-        self.drop_zone.pack(fill="x", padx=16, pady=(0, 10))
-        fmt_row = ctk.CTkFrame(drop, fg_color="transparent")
-        fmt_row.pack(fill="x", padx=16, pady=(0, 14))
-        ctk.CTkLabel(fmt_row, text="Output format").pack(side="left", padx=(0, 10))
-        ctk.CTkRadioButton(fmt_row, text="MP3", variable=self.extract_format, value="mp3").pack(side="left", padx=(0, 14))
-        ctk.CTkRadioButton(fmt_row, text="M4A", variable=self.extract_format, value="m4a").pack(side="left")
-        ctk.CTkButton(fmt_row, text="Select and extract", command=self.select_and_extract, corner_radius=12, height=34, width=150).pack(side="right")
-
+        drop = tk.Frame(pad, bg=BG, highlightthickness=1, highlightbackground=SHADOW_DARK, bd=0)
+        drop.pack(fill="x", pady=(10, 6))
+        dtitle = tk.Label(drop, text="Extract audio from video file", bg=BG, fg=FG, font=("Helvetica", 12, "bold"))
+        dtitle.pack(anchor="w", padx=12, pady=(10, 4))
+        self.drop_zone = tk.Label(drop, text="Drag and drop a video here\n(or click to select)", bg=BG_DARK, fg=MUTED, relief="flat", borderwidth=0, width=46, height=5, cursor="hand2", font=("Helvetica", 11))
+        self.drop_zone.pack(fill="x", padx=12, pady=(0, 10))
+        fmt_row = ttk.Frame(drop)
+        fmt_row.pack(fill="x", padx=12, pady=(0, 10))
+        ttk.Label(fmt_row, text="Output format").pack(side="left")
+        ttk.Radiobutton(fmt_row, text="MP3", variable=self.extract_format, value="mp3").pack(side="left", padx=10)
+        ttk.Radiobutton(fmt_row, text="M4A", variable=self.extract_format, value="m4a").pack(side="left")
+        NeuButton(fmt_row, text="Select and extract", command=self.select_and_extract, width=150, height=34).pack(side="right")
         if DND_FILES_AVAILABLE:
             self.drop_zone.drop_target_register(DND_FILES)
             self.drop_zone.dnd_bind("<<Drop>>", self.on_drop)
         self.drop_zone.bind("<Button-1>", lambda e: self.select_and_extract())
-
-        ctk.CTkLabel(pad, textvariable=self.status, wraplength=560).pack(fill="x", pady=(4, 0))
-
-        import tkinter as tk
-        badge = tk.Label(self, text='#ckpt-yt-dlp-"customtkinter" v0.1.8', bg=ORANGE, fg="#1A0F02",
-                         font=("Courier", 11), cursor="hand2", padx=10, pady=6)
+        status_wrap = tk.Frame(pad, bg=BG)
+        status_wrap.pack(fill="x")
+        ttk.Label(status_wrap, textvariable=self.status, wraplength=520).pack(fill="x")
+        badge = tk.Label(self, text='#ckpt-yt-dlp-"clean-accent-ui" v0.1.7', bg=ACCENT, fg="#1A0F02", font=("Courier", 11), cursor="hand2", padx=10, pady=6)
         badge.place(relx=1.0, rely=1.0, anchor="se", x=-10, y=-10)
-        badge.bind("<Button-1>", lambda e: messagebox.showinfo("Changes", "v0.1.8: migrated to CustomTkinter."))
+        badge.bind("<Button-1>", lambda e: messagebox.showinfo("Changes", "v0.1.5: neumorphic GUI styling."))
 
     def valid_url(self, url):
         parsed = urlparse(url.strip())
@@ -152,18 +229,15 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def render_quality(self, heights, title):
         self.clear_quality()
-        ctk.CTkLabel(self.quality_inner, text=title[:70] if title else "Available options",
-                     anchor="w").pack(anchor="w", pady=(0, 6))
+        ttk.Label(self.quality_inner, text=title[:70] if title else "Available options").pack(anchor="w", pady=(0, 4))
         if heights:
-            ctk.CTkRadioButton(self.quality_inner, text="Best (highest available)", variable=self.choice,
-                                value="v:best").pack(anchor="w", padx=4, pady=2)
+            ttk.Radiobutton(self.quality_inner, text="Best (highest available)", variable=self.choice, value="v:best").pack(anchor="w", padx=8)
             for h in heights:
                 label = LABELS.get(h, f"{h}")
-                ctk.CTkRadioButton(self.quality_inner, text=f"{label} video + audio", variable=self.choice,
-                                    value=f"v:{h}").pack(anchor="w", padx=4, pady=2)
-        ctk.CTkFrame(self.quality_inner, height=1, fg_color=("gray80", "gray30")).pack(fill="x", pady=8)
-        ctk.CTkRadioButton(self.quality_inner, text="Audio only: M4A", variable=self.choice, value="a:m4a").pack(anchor="w", padx=4, pady=2)
-        ctk.CTkRadioButton(self.quality_inner, text="Audio only: MP3", variable=self.choice, value="a:mp3").pack(anchor="w", padx=4, pady=2)
+                ttk.Radiobutton(self.quality_inner, text=f"{label} video + audio", variable=self.choice, value=f"v:{h}").pack(anchor="w", padx=8)
+        ttk.Separator(self.quality_inner, orient="horizontal").pack(fill="x", padx=8, pady=6)
+        ttk.Radiobutton(self.quality_inner, text="Audio only: M4A", variable=self.choice, value="a:m4a").pack(anchor="w", padx=8)
+        ttk.Radiobutton(self.quality_inner, text="Audio only: MP3", variable=self.choice, value="a:mp3").pack(anchor="w", padx=8)
         if heights:
             self.choice.set("v:best")
         else:
@@ -185,9 +259,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         except OSError as e:
             self.status.set(f"Output folder error: {e}")
             return
-        self.bar.set(0)
+        self.bar["value"] = 0
         self.status.set("Starting download...")
-        self.cancel.configure(state="normal")
+        self.cancel.set_enabled(True)
         self.start_worker(self.download_worker, url, selected, str(out_dir))
 
     def download_worker(self, url, selected, out_dir):
@@ -224,15 +298,14 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         if self.proc:
             self.proc.terminate()
             self.status.set("Cancelled.")
-            self.cancel.configure(state="disabled")
+            self.cancel.set_enabled(False)
 
     def paste_url(self):
         try:
-            import tkinter as tk
             self.url.set(self.clipboard_get().strip())
             self.status.set("Pasted from clipboard; fetching...")
             self.fetch()
-        except Exception:
+        except tk.TclError:
             self.status.set("Clipboard is empty or unavailable.")
 
     def on_paste_key(self, event):
@@ -280,7 +353,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             self.log.put(("error", " | ".join(tail)))
 
     def start_worker(self, target, *args):
-        self.cancel.configure(state="disabled")
+        self.cancel.set_enabled(False)
         self.worker = threading.Thread(target=target, args=args, daemon=True)
         self.worker.start()
 
@@ -294,25 +367,20 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                     m = re.search(r"\[download\]\s+(\d+(?:\.\d+)?)%", text)
                     if m:
                         self.progress_value.set(float(m.group(1)))
-                        self.bar.set(float(m.group(1)) / 100.0)
                     self.status.set(text[:150])
                 elif kind == "formats":
                     self.render_quality(item[1], item[2])
                 elif kind == "done":
                     self.progress_value.set(100)
-                    self.bar.set(1.0)
                     self.status.set(item[1])
-                    self.cancel.configure(state="disabled")
+                    self.cancel.set_enabled(False)
                 elif kind == "error":
                     self.status.set(item[1])
-                    self.cancel.configure(state="disabled")
+                    self.cancel.set_enabled(False)
         except queue.Empty:
             pass
         self.after(80, self.poll_log)
 
 
-DND_FILES_AVAILABLE = True
-
 if __name__ == "__main__":
-    import tkinter as tk
     App().mainloop()
