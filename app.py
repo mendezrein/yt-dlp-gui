@@ -33,12 +33,14 @@ def rounded_rect(canvas, x1, y1, x2, y2, r, **kw):
 
 
 class NeuButton(tk.Canvas):
-    def __init__(self, parent, text="", command=None, width=110, height=36, radius=16, font=("Helvetica", 10, "bold")):
+    def __init__(self, parent, text="", command=None, width=110, height=36, radius=22, font=("Helvetica", 10, "bold"), color=None, text_color=None):
         super().__init__(parent, width=width, height=height, bg=BG, highlightthickness=0, cursor="hand2")
         self.text = text
         self.command = command
         self.radius = radius
         self.font = font
+        self.color = color or BG
+        self.text_color = text_color or ("#FFFFFF" if color and color != BG else FG)
         self._pressed = False
         self._enabled = True
         self.bind("<ButtonPress-1>", lambda e: self._set(True) if self._enabled else None)
@@ -58,21 +60,38 @@ class NeuButton(tk.Canvas):
         self.configure(cursor="hand2" if enabled else "arrow")
         self.draw()
 
+    def _dark(self, hexcolor):
+        if hexcolor == BG:
+            return BG_DARK
+        hexcolor = hexcolor.lstrip("#")
+        r = max(0, int(hexcolor[0:2], 16) - 35)
+        g = max(0, int(hexcolor[2:4], 16) - 35)
+        b = max(0, int(hexcolor[4:6], 16) - 35)
+        return f"#{r:02x}{g:02x}{b:02x}"
+
     def draw(self):
         self.delete("all")
         w = int(self["width"]); h = int(self["height"]); r = self.radius
+        color = self.color
+        dark = self._dark(color)
         if not self._enabled:
             rounded_rect(self, 2, 3, w-2, h-1, r, fill=BG_DARK, outline=SHADOW_DARK, width=0)
             self.create_text(w//2, h//2, text=self.text, fill=MUTED, font=self.font)
             return
-        if self._pressed:
-            rounded_rect(self, 4, 4, w-2, h-2, r, fill=BG_DARK, outline=SHADOW_DARK, width=1)
-            rounded_rect(self, 3, 3, w-3, h-3, r, fill=BG, outline="", width=0)
+        if color == BG:
+            if self._pressed:
+                rounded_rect(self, 4, 4, w-2, h-2, r, fill=BG_DARK, outline=SHADOW_DARK, width=1)
+                rounded_rect(self, 3, 3, w-3, h-3, r, fill=BG, outline="", width=0)
+            else:
+                rounded_rect(self, 3, 4, w-1, h, r, fill=SHADOW_DARK, outline="", width=0)
+                rounded_rect(self, 1, 2, w-3, h-2, r, fill=SHADOW_LIGHT, outline="", width=0)
+                rounded_rect(self, 2, 3, w-2, h-1, r, fill=BG, outline="", width=0)
         else:
-            rounded_rect(self, 3, 4, w-1, h, r, fill=SHADOW_DARK, outline="", width=0)
-            rounded_rect(self, 1, 2, w-3, h-2, r, fill=SHADOW_LIGHT, outline="", width=0)
-            rounded_rect(self, 2, 3, w-2, h-1, r, fill=BG, outline="", width=0)
-        self.create_text(w//2, h//2, text=self.text, fill=FG, font=self.font)
+            offset = 2 if not self._pressed else 0
+            rounded_rect(self, 3, 5, w-1, h+1, r, fill=dark, outline="", width=0)
+            rounded_rect(self, 2-offset, 2-offset, w-2-offset, h-2-offset, r, fill=color, outline="", width=0)
+        self.create_text(w//2, h//2, text=self.text, fill=self.text_color, font=self.font)
+
 
 
 
@@ -121,8 +140,7 @@ class App(APP_BASE):
         url_entry.bind("<Return>", lambda e: self.fetch())
         url_entry.bind("<Command-v>", self.on_paste_key)
         url_entry.bind("<Control-v>", self.on_paste_key)
-        NeuButton(row, text="Fetch", command=self.fetch, width=86, height=34).pack(side="left")
-        NeuButton(row, text="Paste", command=self.paste_url, width=86, height=34).pack(side="left", padx=(8, 0))
+        NeuButton(row, text="Paste & Fetch", command=self.paste_url, width=124, height=34, color="#74C0FC", text_color="#1A0F02").pack(side="left")
         body = ttk.Frame(pad)
         body.pack(fill="both", expand=True, pady=12)
         self.quality_box = tk.Frame(body, bg=BG, highlightthickness=1, highlightbackground=SHADOW_DARK, bd=0)
@@ -137,11 +155,11 @@ class App(APP_BASE):
         dir_row.pack(fill="x")
         ttk.Label(dir_row, text="Output").pack(side="left")
         ttk.Entry(dir_row, textvariable=self.out, width=46).pack(side="left", fill="x", expand=True, padx=10)
-        NeuButton(dir_row, text="Browse", command=self.browse, width=86, height=34).pack(side="left")
+        NeuButton(dir_row, text="Browse", command=self.browse, width=92, height=34, color="#868E96", text_color="#FFFFFF").pack(side="left")
         actions = ttk.Frame(footer)
         actions.pack(fill="x", pady=10)
-        NeuButton(actions, text="Download", command=self.download, width=104, height=36).pack(side="left")
-        self.cancel = NeuButton(actions, text="Cancel", command=self.cancel_download, width=86, height=36)
+        NeuButton(actions, text="Download", command=self.download, width=118, height=36, color="#51CF66", text_color="#FFFFFF").pack(side="left")
+        self.cancel = NeuButton(actions, text="Cancel", command=self.cancel_download, width=96, height=36, color="#FF6B6B", text_color="#FFFFFF")
         self.cancel.pack(side="left", padx=10)
         self.cancel_state = False
         self.bar = ttk.Progressbar(actions, variable=self.progress_value, maximum=100, length=200)
@@ -165,7 +183,7 @@ class App(APP_BASE):
         status_wrap = tk.Frame(pad, bg=BG)
         status_wrap.pack(fill="x")
         ttk.Label(status_wrap, textvariable=self.status, wraplength=520).pack(fill="x")
-        badge = tk.Label(self, text='#ckpt-yt-dlp-"windows-build" v0.1.6', bg=ACCENT, fg="#1A0F02", font=("Courier", 11), cursor="hand2", padx=10, pady=6)
+        badge = tk.Label(self, text='#ckpt-yt-dlp-"clean-accent-ui" v0.1.7', bg=ACCENT, fg="#1A0F02", font=("Courier", 11), cursor="hand2", padx=10, pady=6)
         badge.place(relx=1.0, rely=1.0, anchor="se", x=-10, y=-10)
         badge.bind("<Button-1>", lambda e: messagebox.showinfo("Changes", "v0.1.5: neumorphic GUI styling."))
 
